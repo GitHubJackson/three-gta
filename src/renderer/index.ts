@@ -99,8 +99,7 @@ class Renderer {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let carObj: any = null;
-    // TODO 需要增加 gta 这个静态目录...能不能优化？
-    fbxLoader.load("gta/bench/bench.fbx", (object) => {
+    fbxLoader.load(window.location.href + "/bench/bench.fbx", (object) => {
       const mesh = object.children[0];
       mesh.traverse(function (child) {
         child.castShadow = true;
