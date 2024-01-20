@@ -1,30 +1,15 @@
-# React + TypeScript + Vite
+# Three-GTA
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+基于 threejs 的 playground，近期打算实现一些行车场景
 
-Currently, two official plugins are available:
+## Demo
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+[体验地址](https://pole.zhouweibin.top/gta/)（第一次加载页面，模型文件下载可能有点慢，需要耐心点哈 ~）
 
-## Expanding the ESLint configuration
+## 专栏
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+后续在项目迭代过程中，会同步更新 [掘金专栏](https://juejin.cn/column/7321698830734852137)
 
-- Configure the top-level `parserOptions` property like this:
+## 最后
 
-```js
-export default {
-  // other rules...
-  parserOptions: {
-    ecmaVersion: 'latest',
-    sourceType: 'module',
-    project: ['./tsconfig.json', './tsconfig.node.json'],
-    tsconfigRootDir: __dirname,
-  },
-}
-```
-
-- Replace `plugin:@typescript-eslint/recommended` to `plugin:@typescript-eslint/recommended-type-checked` or `plugin:@typescript-eslint/strict-type-checked`
-- Optionally add `plugin:@typescript-eslint/stylistic-type-checked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and add `plugin:react/recommended` & `plugin:react/jsx-runtime` to the `extends` list
+项目会持续更新，欢迎一块探讨学习
