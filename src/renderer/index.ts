@@ -1,7 +1,11 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import Stats from "stats.js";
+import * as CANNON from "cannon-es";
 
 const fbxLoader = new FBXLoader();
 
@@ -55,96 +59,195 @@ class Renderer {
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = true;
 
-    // 地面
-    const planeGeometry = new THREE.PlaneGeometry(200, 200);
-    // 可产生阴影的材质
-    const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xc6c6c6 });
+    // // 地面
+    // const planeGeometry = new THREE.PlaneGeometry(200, 200);
+    // // 可产生阴影的材质
+    // const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xc6c6c6 });
+    // const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    // plane.rotation.x = (-90 * Math.PI) / 180; // 地面 x轴 旋转-90度
+    // // 地面接受阴影
+    // plane.receiveShadow = true;
+    // scene.add(plane);
+    const planeGeometry = new THREE.PlaneGeometry(10, 10, 10);
+    const planeMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff0000,
+      side: THREE.DoubleSide,
+    });
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    plane.rotation.x = (-90 * Math.PI) / 180; // 地面 x轴 旋转-90度
-    // 地面接受阴影
-    plane.receiveShadow = true;
+    plane.rotation.x = Math.PI / 2;
     scene.add(plane);
 
-    // 创建一个长宽高均为 4 个单位长度的长方体
-    const cubeGeometry = new THREE.BoxGeometry(4, 4, 4);
+    // let carObj: any = null;
+    // fbxLoader.load(window.location.href + "/bench/bench.fbx", (object) => {
+    //   const mesh = object.children[0];
+    //   mesh.traverse(function (child) {
+    //     child.castShadow = true;
+    //     child.receiveShadow = true;
+    //   });
+    //   mesh.position.set(0, 0, 0);
+    //   mesh.rotation.y = Math.PI;
+    //   mesh.rotation.x = Math.PI / 2;
+    //   mesh.scale.set(0.01, 0.01, 0.01);
+    //   scene.add(mesh);
+    //   carObj = mesh;
+    // });
 
-    // 创建材质（该材质不受光源影响）
-    const cubeMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
+    // 创建一个球用于物理碰撞测试
+    // const sphereG = new THREE.SphereGeometry(1, 32, 32);
+    // const sphereM = new THREE.MeshStandardMaterial({ color: 0x888888 });
+    // const box = new THREE.Mesh(sphereG, sphereM);
+    // box.position.set(1, 1, 1);
+    // box.castShadow = true;
+    // scene.add(box);
+
+    /**
+     * Physics
+     **/
+
+    const world = new CANNON.World();
+    world.broadphase = new CANNON.SAPBroadphase(world);
+    world.gravity.set(0, -10, 0);
+    world.defaultContactMaterial.friction = 0;
+
+    const groundMaterial = new CANNON.Material("groundMaterial");
+    const wheelMaterial = new CANNON.Material("wheelMaterial");
+    const wheelGroundContactMaterial = new CANNON.ContactMaterial(
+      wheelMaterial,
+      groundMaterial,
+      {
+        friction: 0.3,
+        restitution: 0,
+        contactEquationStiffness: 1000,
+      }
+    );
+    world.addContactMaterial(wheelGroundContactMaterial);
+
+    // car physics body
+    const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.3, 2));
+    const chassisBody = new CANNON.Body({ mass: 150 });
+    chassisBody.addShape(chassisShape);
+    chassisBody.position.set(0, 0.2, 0);
+    chassisBody.angularVelocity.set(0, 0, 0); // initial velocity
+
+    // car visual body
+    const geometry = new THREE.BoxGeometry(2, 0.6, 4); // double chasis shape
+    const material = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      side: THREE.DoubleSide,
     });
-    // cubeMaterial.wireframe = true;
+    const box = new THREE.Mesh(geometry, material);
+    scene.add(box);
 
-    // 创建一个立方体网格（mesh）：将材质包裹在几何体上
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    // 立方体开启阴影效果
-    cube.castShadow = true;
-    cube.position.x = 4;
-    cube.position.y = 2;
-    cube.position.z = 0;
-    // 将立方体网格加入到场景中
-    // scene.add(cube);
-
-    // 增加边框
-    // 克隆长方体
-    const box = cubeGeometry.clone();
-    const edges = new THREE.EdgesGeometry(box);
-    const edgesMaterial = new THREE.LineBasicMaterial({
-      color: 0x333333,
+    // parent vehicle object
+    const vehicle = new CANNON.RaycastVehicle({
+      chassisBody: chassisBody,
+      indexRightAxis: 0, // x
+      indexUpAxis: 1, // y
+      indexForwardAxis: 2, // z
     });
-    const line = new THREE.LineSegments(edges, edgesMaterial);
-    line.position.x = 4;
-    line.position.y = 2;
-    line.position.z = 0;
-    // scene.add(line);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let carObj: any = null;
-    fbxLoader.load(window.location.href + "/bench/bench.fbx", (object) => {
-      const mesh = object.children[0];
-      mesh.traverse(function (child) {
-        child.castShadow = true;
-        child.receiveShadow = true;
+    // wheel options
+    const options = {
+      radius: 0.3,
+      directionLocal: new CANNON.Vec3(0, -1, 0),
+      suspensionStiffness: 45,
+      suspensionRestLength: 0.4,
+      frictionSlip: 5,
+      dampingRelaxation: 2.3,
+      dampingCompression: 4.5,
+      maxSuspensionForce: 200000,
+      rollInfluence: 0.01,
+      axleLocal: new CANNON.Vec3(-1, 0, 0),
+      chassisConnectionPointLocal: new CANNON.Vec3(1, 1, 0),
+      maxSuspensionTravel: 0.25,
+      customSlidingRotationalSpeed: -30,
+      useCustomSlidingRotationalSpeed: true,
+    };
+
+    const axlewidth = 0.7;
+    options.chassisConnectionPointLocal.set(axlewidth, 0, -1);
+    vehicle.addWheel(options);
+
+    options.chassisConnectionPointLocal.set(-axlewidth, 0, -1);
+    vehicle.addWheel(options);
+
+    options.chassisConnectionPointLocal.set(axlewidth, 0, 1);
+    vehicle.addWheel(options);
+
+    options.chassisConnectionPointLocal.set(-axlewidth, 0, 1);
+    vehicle.addWheel(options);
+
+    vehicle.addToWorld(world);
+
+    // car wheels
+    const wheelBodies: any[] = [],
+      wheelVisuals: any[] = [];
+    vehicle.wheelInfos.forEach(function (wheel) {
+      const shape = new CANNON.Cylinder(
+        wheel.radius,
+        wheel.radius,
+        wheel.radius / 2,
+        20
+      );
+      const body = new CANNON.Body({ mass: 1, material: wheelMaterial });
+      const q = new CANNON.Quaternion();
+      q.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+      body.addShape(shape, new CANNON.Vec3(), q);
+      wheelBodies.push(body);
+      // wheel visual body
+      const geometry = new THREE.CylinderGeometry(
+        wheel.radius,
+        wheel.radius,
+        0.4,
+        32
+      );
+      const material = new THREE.MeshPhongMaterial({
+        color: 0xd0901d,
+        emissive: 0xaa0000,
+        side: THREE.DoubleSide,
+        flatShading: true,
       });
-      mesh.position.set(0, 0, 0);
-      mesh.rotation.y = Math.PI;
-      mesh.rotation.x = Math.PI / 2;
-      mesh.scale.set(0.01, 0.01, 0.01);
-      scene.add(mesh);
-      carObj = mesh;
+      const cylinder = new THREE.Mesh(geometry, material);
+      cylinder.geometry.rotateZ(Math.PI / 2);
+      wheelVisuals.push(cylinder);
+      scene.add(cylinder);
     });
 
-    // 监听组合键
-    const activeKeys = new Set();
-    // 长按时间
-    let startTime = 0;
-    // 监听事件
-    document.addEventListener("keydown", (e) => {
-      activeKeys.add(e.key);
-      if (startTime === 0) {
-        startTime = Date.now();
-      }
-      let t = (Date.now() - startTime) / 1000;
-      if (t > 10) {
-        t = 10;
-      }
-      // const key = e.key;
-      if (activeKeys.has("ArrowUp")) {
-        carObj.position.z -= t * 0.3;
-      }
-      if (activeKeys.has("ArrowDown")) {
-        carObj.position.z += t * 0.3;
-      }
-      if (activeKeys.has("ArrowLeft")) {
-        carObj.position.x -= t * 0.3;
-      }
-      if (activeKeys.has("ArrowRight")) {
-        carObj.position.x += t * 0.3;
+    // update the wheels to match the physics
+    world.addEventListener("postStep", function () {
+      for (let i = 0; i < vehicle.wheelInfos.length; i++) {
+        vehicle.updateWheelTransform(i);
+        const t = vehicle.wheelInfos[i].worldTransform;
+        // update wheel physics
+        wheelBodies[i].position.copy(t.position);
+        wheelBodies[i].quaternion.copy(t.quaternion);
+        // update wheel visuals
+        wheelVisuals[i].position.copy(t.position);
+        wheelVisuals[i].quaternion.copy(t.quaternion);
       }
     });
-    document.addEventListener("keyup", (e) => {
-      activeKeys.delete(e.key);
-      startTime = 0;
+
+    const q = plane.quaternion;
+    const planeBody = new CANNON.Body({
+      mass: 0, // mass = 0 makes the body static
+      material: groundMaterial,
+      shape: new CANNON.Plane(),
+      // @ts-ignore
+      quaternion: new CANNON.Quaternion(-q._x, q._y, q._z, q._w),
     });
+    world.addBody(planeBody);
+
+    function updatePhysics() {
+      // if (carObj) {
+      world.step(1 / 60);
+      // update the chassis position
+      // @ts-ignore
+      box.position.copy(chassisBody.position);
+      // @ts-ignore
+      box.quaternion.copy(chassisBody.quaternion);
+      // }
+    }
+
     // 自适应
     window.addEventListener("resize", onResize, false);
     function onResize() {
@@ -168,6 +271,45 @@ class Renderer {
       renderer.domElement.requestFullscreen();
     });
 
+    function navigate(e: any) {
+      if (e.type != "keydown" && e.type != "keyup") return;
+      const keyup = e.type == "keyup";
+      vehicle.setBrake(0, 0);
+      vehicle.setBrake(0, 1);
+      vehicle.setBrake(0, 2);
+      vehicle.setBrake(0, 3);
+
+      const engineForce = 800,
+        maxSteerVal = 0.3;
+      switch (e.keyCode) {
+        case 38: // forward
+          vehicle.applyEngineForce(keyup ? 0 : -engineForce, 2);
+          vehicle.applyEngineForce(keyup ? 0 : -engineForce, 3);
+          break;
+
+        case 40: // backward
+          vehicle.applyEngineForce(keyup ? 0 : engineForce, 2);
+          vehicle.applyEngineForce(keyup ? 0 : engineForce, 3);
+          break;
+
+        case 39: // right
+          vehicle.setSteeringValue(keyup ? 0 : -maxSteerVal, 2);
+          vehicle.setSteeringValue(keyup ? 0 : -maxSteerVal, 3);
+          break;
+
+        case 37: // left
+          vehicle.setSteeringValue(keyup ? 0 : maxSteerVal, 2);
+          vehicle.setSteeringValue(keyup ? 0 : maxSteerVal, 3);
+          break;
+      }
+    }
+
+    window.addEventListener("keydown", navigate);
+    window.addEventListener("keyup", navigate);
+
+    // const clock = new THREE.Clock();
+    // let oldElapsedTime = 0;
+
     const controls = new OrbitControls(camera, renderer.domElement);
     const stats = new Stats();
     // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -175,8 +317,15 @@ class Renderer {
     document.body.appendChild(stats.dom);
     function animate() {
       stats.begin();
+      // const elapsedTime = clock.getElapsedTime();
+      // const deltaTime = elapsedTime - oldElapsedTime;
+      // oldElapsedTime = elapsedTime;
+      // sphereBody.applyForce(new CANNON.Vec3(-0.5, 0, 0), sphereBody.position);
+      //更新物理世界
+      // world.step(1 / 60, deltaTime, 3);
       controls.update();
       renderer.render(scene, camera);
+      updatePhysics();
       stats.end();
       requestAnimationFrame(animate);
     }
