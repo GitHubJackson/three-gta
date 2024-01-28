@@ -3,11 +3,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+// import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import Stats from "stats.js";
 import * as CANNON from "cannon-es";
 
-const fbxLoader = new FBXLoader();
+// const fbxLoader = new FBXLoader();
 
 interface IInitPayload {
   // 挂载的节点id
