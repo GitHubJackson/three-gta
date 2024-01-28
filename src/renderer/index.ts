@@ -5,7 +5,6 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import Stats from "stats.js";
-import * as CANNON from "cannon-es";
 
 const fbxLoader = new FBXLoader();
 
@@ -15,8 +14,24 @@ interface IInitPayload {
 }
 
 class Renderer {
+  scene: THREE.Scene | null = null;
+
   constructor() {
     // console.log("===Renderer");
+  }
+
+  createParkingSpace() {
+    const plane = new THREE.PlaneGeometry(8, 5);
+    const material = new THREE.MeshPhongMaterial({
+      color: 0x666666,
+      side: THREE.DoubleSide,
+    });
+    const mesh = new THREE.Mesh(plane, material);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(10, 0.12, -20);
+    this.scene?.add(mesh);
+    // 增加自定义type，便于后面处理车位的选中逻辑
+    mesh.userData.type = "parkingSpace";
   }
 
   init(initPayload: IInitPayload) {
@@ -24,13 +39,13 @@ class Renderer {
     const style = container!.getBoundingClientRect();
     const width = style.width;
     const height = style.height;
-    // 创建一个场景
+    /***** 创建一个场景 *****/
     const scene = new THREE.Scene();
+    this.scene = scene;
     const gridHelper = new THREE.GridHelper(100, 30, 0x4c4c4c, 0x5c5c5c);
     gridHelper.position.y = 0.1;
     scene.add(gridHelper);
-
-    // 创建环境光和其他光源
+    /***** 创建环境光和其他光源 *****/
     const ambientLight = new THREE.AmbientLight(0xffffff);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff);
@@ -38,16 +53,14 @@ class Renderer {
     // 设置方向光源位置
     directionalLight.position.set(15, 30, 25);
     scene.add(directionalLight);
-
-    // 创建一个具有透视效果的摄像机
+    /***** 创建一个具有透视效果的摄像机 *****/
     const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 800);
     // 设置摄像机位置，并将其朝向场景中心
     camera.position.x = 0;
-    camera.position.y = 10;
-    camera.position.z = 20;
-    camera.lookAt(scene.position);
-
-    // 创建一个 WebGL 渲染器，Three.js 还提供 <canvas>, <svg>, CSS3D 渲染器
+    // camera.position.y = 10;
+    // camera.position.z = 20;
+    // camera.lookAt(scene.position);
+    /***** 创建一个 WebGL 渲染器 *****/
     const renderer = new THREE.WebGLRenderer({
       antialias: true, // 开启抗锯齿
     });
@@ -58,143 +71,56 @@ class Renderer {
     // renderer.setClearColor(0xffffff);
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = true;
-
-    // // 地面
-    // const planeGeometry = new THREE.PlaneGeometry(200, 200);
-    // // 可产生阴影的材质
-    // const planeMaterial = new THREE.MeshLambertMaterial({ color: 0xc6c6c6 });
-    // const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    // plane.rotation.x = (-90 * Math.PI) / 180; // 地面 x轴 旋转-90度
-    // // 地面接受阴影
-    // plane.receiveShadow = true;
-    // scene.add(plane);
-    const planeGeometry = new THREE.PlaneGeometry(10, 10, 10);
-    const planeMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff0000,
+    // 地面
+    const planeGeometry = new THREE.PlaneGeometry(200, 200);
+    const planeMaterial = new THREE.MeshLambertMaterial({
+      color: 0xc6c6c6,
       side: THREE.DoubleSide,
     });
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    // 地面接受阴影
+    plane.receiveShadow = true;
     plane.rotation.x = Math.PI / 2;
     scene.add(plane);
 
-    // let carObj: any = null;
-    // fbxLoader.load(window.location.href + "/bench/bench.fbx", (object) => {
-    //   const mesh = object.children[0];
-    //   mesh.traverse(function (child) {
-    //     child.castShadow = true;
-    //     child.receiveShadow = true;
-    //   });
-    //   mesh.position.set(0, 0, 0);
-    //   mesh.rotation.y = Math.PI;
-    //   mesh.rotation.x = Math.PI / 2;
-    //   mesh.scale.set(0.01, 0.01, 0.01);
-    //   scene.add(mesh);
-    //   carObj = mesh;
-    // });
-
-    // 创建一个球用于物理碰撞测试
-    // const sphereG = new THREE.SphereGeometry(1, 32, 32);
-    // const sphereM = new THREE.MeshStandardMaterial({ color: 0x888888 });
-    // const box = new THREE.Mesh(sphereG, sphereM);
-    // box.position.set(1, 1, 1);
-    // box.castShadow = true;
-    // scene.add(box);
-
-    /**
-     * Physics
-     **/
-
-    const world = new CANNON.World();
-    world.broadphase = new CANNON.SAPBroadphase(world);
-    world.gravity.set(0, -10, 0);
-    world.defaultContactMaterial.friction = 0;
-
-    const groundMaterial = new CANNON.Material("groundMaterial");
-    const wheelMaterial = new CANNON.Material("wheelMaterial");
-    const wheelGroundContactMaterial = new CANNON.ContactMaterial(
-      wheelMaterial,
-      groundMaterial,
-      {
-        friction: 0.3,
-        restitution: 0,
-        contactEquationStiffness: 1000,
-      }
-    );
-    world.addContactMaterial(wheelGroundContactMaterial);
-
-    // car physics body
-    const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.3, 2));
-    const chassisBody = new CANNON.Body({ mass: 150 });
-    chassisBody.addShape(chassisShape);
-    chassisBody.position.set(0, 0.2, 0);
-    chassisBody.angularVelocity.set(0, 0, 0); // initial velocity
-
-    // car visual body
-    const geometry = new THREE.BoxGeometry(2, 0.6, 4); // double chasis shape
+    // 小车
+    const geometry = new THREE.BoxGeometry(2, 0.6, 3);
     const material = new THREE.MeshBasicMaterial({
-      color: 0xffff00,
+      color: 0x00ffff,
       side: THREE.DoubleSide,
     });
-    const box = new THREE.Mesh(geometry, material);
-    scene.add(box);
-
-    // parent vehicle object
-    const vehicle = new CANNON.RaycastVehicle({
-      chassisBody: chassisBody,
-      indexRightAxis: 0, // x
-      indexUpAxis: 1, // y
-      indexForwardAxis: 2, // z
+    const vehicle = new THREE.Mesh(geometry, material);
+    vehicle.position.set(0, 1, 0);
+    scene.add(vehicle);
+    // 增加边框
+    const box = geometry.clone();
+    const edges = new THREE.EdgesGeometry(box);
+    const edgesMaterial = new THREE.LineBasicMaterial({
+      color: 0x333333,
     });
-
-    // wheel options
-    const options = {
-      radius: 0.3,
-      directionLocal: new CANNON.Vec3(0, -1, 0),
-      suspensionStiffness: 45,
-      suspensionRestLength: 0.4,
-      frictionSlip: 5,
-      dampingRelaxation: 2.3,
-      dampingCompression: 4.5,
-      maxSuspensionForce: 200000,
-      rollInfluence: 0.01,
-      axleLocal: new CANNON.Vec3(-1, 0, 0),
-      chassisConnectionPointLocal: new CANNON.Vec3(1, 1, 0),
-      maxSuspensionTravel: 0.25,
-      customSlidingRotationalSpeed: -30,
-      useCustomSlidingRotationalSpeed: true,
-    };
-
+    const line = new THREE.LineSegments(edges, edgesMaterial);
+    line.position.x = 0;
+    line.position.y = 1;
+    line.position.z = 0;
+    scene.add(line);
+    // 组成一个Group
+    const egoCar = new THREE.Group();
+    egoCar.name = "自车";
+    egoCar.add(vehicle, line);
+    scene.add(egoCar);
+    // 车轮
     const axlewidth = 0.7;
-    options.chassisConnectionPointLocal.set(axlewidth, 0, -1);
-    vehicle.addWheel(options);
-
-    options.chassisConnectionPointLocal.set(-axlewidth, 0, -1);
-    vehicle.addWheel(options);
-
-    options.chassisConnectionPointLocal.set(axlewidth, 0, 1);
-    vehicle.addWheel(options);
-
-    options.chassisConnectionPointLocal.set(-axlewidth, 0, 1);
-    vehicle.addWheel(options);
-
-    vehicle.addToWorld(world);
-
-    // car wheels
-    const wheelBodies: any[] = [],
-      wheelVisuals: any[] = [];
-    vehicle.wheelInfos.forEach(function (wheel) {
-      const shape = new CANNON.Cylinder(
-        wheel.radius,
-        wheel.radius,
-        wheel.radius / 2,
-        20
-      );
-      const body = new CANNON.Body({ mass: 1, material: wheelMaterial });
-      const q = new CANNON.Quaternion();
-      q.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
-      body.addShape(shape, new CANNON.Vec3(), q);
-      wheelBodies.push(body);
-      // wheel visual body
+    const radius = 0.4;
+    const wheels: any[] = [];
+    const wheelObjects: any[] = [];
+    wheels.push({ position: [axlewidth, 0.4, -1], radius });
+    wheels.push({
+      position: [-axlewidth, 0.4, -1],
+      radius,
+    });
+    wheels.push({ position: [axlewidth, 0.4, 1], radius });
+    wheels.push({ position: [-axlewidth, 0.4, 1], radius });
+    wheels.forEach(function (wheel) {
       const geometry = new THREE.CylinderGeometry(
         wheel.radius,
         wheel.radius,
@@ -203,51 +129,47 @@ class Renderer {
       );
       const material = new THREE.MeshPhongMaterial({
         color: 0xd0901d,
-        emissive: 0xaa0000,
+        emissive: 0xee0000,
         side: THREE.DoubleSide,
         flatShading: true,
       });
       const cylinder = new THREE.Mesh(geometry, material);
       cylinder.geometry.rotateZ(Math.PI / 2);
-      wheelVisuals.push(cylinder);
-      scene.add(cylinder);
+      cylinder.position.set(
+        wheel.position[0],
+        wheel.position[1],
+        wheel.position[2]
+      );
+      egoCar.add(cylinder);
+      wheelObjects.push(cylinder);
     });
+    // 看向自车
+    camera.lookAt(egoCar.position);
 
-    // update the wheels to match the physics
-    world.addEventListener("postStep", function () {
-      for (let i = 0; i < vehicle.wheelInfos.length; i++) {
-        vehicle.updateWheelTransform(i);
-        const t = vehicle.wheelInfos[i].worldTransform;
-        // update wheel physics
-        wheelBodies[i].position.copy(t.position);
-        wheelBodies[i].quaternion.copy(t.quaternion);
-        // update wheel visuals
-        wheelVisuals[i].position.copy(t.position);
-        wheelVisuals[i].quaternion.copy(t.quaternion);
+    /***** 绘制车位 *****/
+    this.createParkingSpace();
+
+    /***** 事件监听 *****/
+    function handleParkSpaceClick(event: any) {
+      let vector = new THREE.Vector3(
+        (event.clientX / window.innerWidth) * 2 - 1,
+        -(event.clientY / window.innerHeight) * 2 + 1,
+        0.5
+      );
+      vector = vector.unproject(camera);
+      const raycaster = new THREE.Raycaster(
+        camera.position,
+        vector.sub(camera.position).normalize()
+      );
+      const intersects = raycaster.intersectObjects(scene.children);
+      for (let i = 0; i < intersects.length; i++) {
+        const obj = intersects[i];
+        // @ts-ignore
+        if (obj.object.userData.type === "parkingSpace")
+          // @ts-ignore
+          obj.object.material.color.set(0x00ff00);
       }
-    });
-
-    const q = plane.quaternion;
-    const planeBody = new CANNON.Body({
-      mass: 0, // mass = 0 makes the body static
-      material: groundMaterial,
-      shape: new CANNON.Plane(),
-      // @ts-ignore
-      quaternion: new CANNON.Quaternion(-q._x, q._y, q._z, q._w),
-    });
-    world.addBody(planeBody);
-
-    function updatePhysics() {
-      // if (carObj) {
-      world.step(1 / 60);
-      // update the chassis position
-      // @ts-ignore
-      box.position.copy(chassisBody.position);
-      // @ts-ignore
-      box.quaternion.copy(chassisBody.quaternion);
-      // }
     }
-
     // 自适应
     window.addEventListener("resize", onResize, false);
     function onResize() {
@@ -270,45 +192,39 @@ class Renderer {
       }
       renderer.domElement.requestFullscreen();
     });
+    document.addEventListener("click", handleParkSpaceClick);
 
-    function navigate(e: any) {
-      if (e.type != "keydown" && e.type != "keyup") return;
-      const keyup = e.type == "keyup";
-      vehicle.setBrake(0, 0);
-      vehicle.setBrake(0, 1);
-      vehicle.setBrake(0, 2);
-      vehicle.setBrake(0, 3);
-
-      const engineForce = 800,
-        maxSteerVal = 0.3;
-      switch (e.keyCode) {
-        case 38: // forward
-          vehicle.applyEngineForce(keyup ? 0 : -engineForce, 2);
-          vehicle.applyEngineForce(keyup ? 0 : -engineForce, 3);
-          break;
-
-        case 40: // backward
-          vehicle.applyEngineForce(keyup ? 0 : engineForce, 2);
-          vehicle.applyEngineForce(keyup ? 0 : engineForce, 3);
-          break;
-
-        case 39: // right
-          vehicle.setSteeringValue(keyup ? 0 : -maxSteerVal, 2);
-          vehicle.setSteeringValue(keyup ? 0 : -maxSteerVal, 3);
-          break;
-
-        case 37: // left
-          vehicle.setSteeringValue(keyup ? 0 : maxSteerVal, 2);
-          vehicle.setSteeringValue(keyup ? 0 : maxSteerVal, 3);
-          break;
+    // 记录开始按下的时间
+    let startTime = 0;
+    const activeKeys = new Set();
+    let t = 0;
+    document.addEventListener("keydown", (e) => {
+      activeKeys.add(e.key);
+      if (startTime === 0) {
+        startTime = Date.now();
       }
-    }
-
-    window.addEventListener("keydown", navigate);
-    window.addEventListener("keyup", navigate);
-
-    // const clock = new THREE.Clock();
-    // let oldElapsedTime = 0;
+      t = (Date.now() - startTime) / 1000;
+      if (t > 10) {
+        t = 10;
+      }
+    });
+    document.addEventListener("keyup", (e) => {
+      activeKeys.delete(e.key);
+      // 没按转向键时校正车轮
+      if (e.key === "ArrowLeft") {
+        wheelObjects.forEach((wheel) => {
+          wheel.rotation.y -= Math.PI / 4;
+        });
+      }
+      if (e.key === "ArrowRight") {
+        wheelObjects.forEach((wheel) => {
+          wheel.rotation.y += Math.PI / 4;
+        });
+      }
+      if (!activeKeys.has("ArrowUp") && !activeKeys.has("ArrowDown")) {
+        startTime = 0;
+      }
+    });
 
     const controls = new OrbitControls(camera, renderer.domElement);
     const stats = new Stats();
@@ -317,15 +233,33 @@ class Renderer {
     document.body.appendChild(stats.dom);
     function animate() {
       stats.begin();
-      // const elapsedTime = clock.getElapsedTime();
-      // const deltaTime = elapsedTime - oldElapsedTime;
-      // oldElapsedTime = elapsedTime;
-      // sphereBody.applyForce(new CANNON.Vec3(-0.5, 0, 0), sphereBody.position);
-      //更新物理世界
-      // world.step(1 / 60, deltaTime, 3);
       controls.update();
+      // 相机跟随自车
+      camera.position.y = egoCar.position.y + 15;
+      camera.position.z = egoCar.position.z + 25;
+      camera.lookAt(egoCar.position);
+      // 行车逻辑
+      if (activeKeys.has("ArrowUp")) {
+        egoCar.position.z -= t * 0.1 * Math.cos(egoCar.rotation.y);
+        egoCar.position.x -= t * 0.1 * Math.sin(egoCar.rotation.y);
+      }
+      if (activeKeys.has("ArrowDown")) {
+        egoCar.position.z += t * 0.1 * Math.cos(egoCar.rotation.y);
+        egoCar.position.x += t * 0.1 * Math.sin(egoCar.rotation.y);
+      }
+      if (activeKeys.has("ArrowLeft")) {
+        egoCar.rotation.y += 0.01;
+        wheelObjects.forEach((wheel) => {
+          wheel.rotation.y = egoCar.rotation.y + Math.PI / 4;
+        });
+      }
+      if (activeKeys.has("ArrowRight")) {
+        egoCar.rotation.y -= 0.01;
+        wheelObjects.forEach((wheel) => {
+          wheel.rotation.y = egoCar.rotation.y - Math.PI / 4;
+        });
+      }
       renderer.render(scene, camera);
-      updatePhysics();
       stats.end();
       requestAnimationFrame(animate);
     }
