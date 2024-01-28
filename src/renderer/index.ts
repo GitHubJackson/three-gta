@@ -15,6 +15,8 @@ interface IInitPayload {
 
 class Renderer {
   scene: THREE.Scene | null = null;
+  // 选中的车位
+  selectedParkSpace: THREE.Object3D | null = null;
 
   constructor() {
     // console.log("===Renderer");
@@ -150,7 +152,7 @@ class Renderer {
     this.createParkingSpace();
 
     /***** 事件监听 *****/
-    function handleParkSpaceClick(event: any) {
+    function handleParkSpaceClick(event: any, self: Renderer) {
       let vector = new THREE.Vector3(
         (event.clientX / window.innerWidth) * 2 - 1,
         -(event.clientY / window.innerHeight) * 2 + 1,
@@ -165,9 +167,11 @@ class Renderer {
       for (let i = 0; i < intersects.length; i++) {
         const obj = intersects[i];
         // @ts-ignore
-        if (obj.object.userData.type === "parkingSpace")
+        if (obj.object.userData.type === "parkingSpace") {
           // @ts-ignore
           obj.object.material.color.set(0x00ff00);
+          self.selectedParkSpace = obj.object;
+        }
       }
     }
     // 自适应
@@ -192,7 +196,7 @@ class Renderer {
       }
       renderer.domElement.requestFullscreen();
     });
-    document.addEventListener("click", handleParkSpaceClick);
+    document.addEventListener("click", (e) => handleParkSpaceClick(e, this));
 
     // 记录开始按下的时间
     let startTime = 0;
@@ -231,7 +235,7 @@ class Renderer {
     // 0: fps, 1: ms, 2: mb, 3+: custom
     stats.showPanel(0);
     document.body.appendChild(stats.dom);
-    function animate() {
+    const animate = () => {
       stats.begin();
       controls.update();
       // 相机跟随自车
@@ -259,10 +263,20 @@ class Renderer {
           wheel.rotation.y = egoCar.rotation.y - Math.PI / 4;
         });
       }
+      // 自动泊车
+      if (this.selectedParkSpace) {
+        const position = this.selectedParkSpace.position;
+        if (egoCar.position.z >= position.z) {
+          egoCar.position.z -= 0.1;
+        }
+        if (egoCar.position.x <= position.x) {
+          egoCar.position.x += 0.1;
+        }
+      }
       renderer.render(scene, camera);
       stats.end();
       requestAnimationFrame(animate);
-    }
+    };
     animate();
     return renderer;
   }

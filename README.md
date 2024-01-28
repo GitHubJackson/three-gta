@@ -4,11 +4,14 @@
 
 ## Demo
 
-[体验地址](https://pole.zhouweibin.top/gta/)（第一次加载页面，模型文件下载可能有点慢，需要耐心点哈 ~）
+[体验地址](https://pole.zhouweibin.top/gta/)
 
 ## 专栏
 
-后续在项目迭代过程中，会同步更新 [掘金专栏](https://juejin.cn/column/7321698830734852137)
+后续在项目迭代过程中，会同步更新文章到以下平台
+
+- [掘金专栏](https://juejin.cn/column/7321698830734852137)
+- [我的个人博客](https://blog.zhouweibin.top/)
 
 ## 最后
 
