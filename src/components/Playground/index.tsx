@@ -7,10 +7,10 @@ export function Playground() {
     const renderer = gtaRenderer.init({
       container: "playground",
     });
-    return () => {
-      // 销毁时清除渲染器占用的资源
-      renderer.dispose();
-    };
+    // return () => {
+    //   // 销毁时清除渲染器占用的资源
+    //   renderer.dispose();
+    // };
   }, []);
 
   return <div id="playground" className={styles["playground"]}></div>;

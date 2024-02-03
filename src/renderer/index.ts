@@ -30,6 +30,7 @@ class Renderer {
   world: CANNON.World | null = null;
   // 选中的车位
   selectedParkSpace: THREE.Object3D | null = null;
+  plane: THREE.Mesh | null = null;
 
   constructor() {
     // console.log("===Renderer");
@@ -109,7 +110,7 @@ class Renderer {
     return floor;
   }
 
-  init(initPayload: IInitPayload) {
+  async init(initPayload: IInitPayload) {
     const container = document.getElementById(initPayload.container);
     const style = container!.getBoundingClientRect();
     const width = style.width;
@@ -146,10 +147,6 @@ class Renderer {
     renderer.shadowMap.enabled = true;
     // 地面
     const planeGeometry = new THREE.PlaneGeometry(1000, 1000);
-    // const planeMaterial = new THREE.MeshLambertMaterial({
-    //   color: 0xc6c6c6,
-    //   side: THREE.DoubleSide,
-    // });
 
     // 小车
     const geometry = new THREE.BoxGeometry(2, 0.6, 3);
@@ -294,27 +291,33 @@ class Renderer {
       }
     });
     // 加载纹理贴图
-    textureLoader.load("/gta/floor.jpg", (texture) => {
-      const planeMaterial = new THREE.MeshLambertMaterial({
-        map: texture,
-        side: THREE.DoubleSide,
+    function texturePromise() {
+      return new Promise((resolve, reject) => {
+        textureLoader.load("/gta/floor.jpg", (texture) => {
+          resolve(texture);
+        });
       });
-      const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-      // 地面接受阴影
-      plane.receiveShadow = true;
-      plane.rotation.x = Math.PI / 2;
-      scene.add(plane);
-      // 地面刚体
-      const q = plane.quaternion;
-      const planeBody = new CANNON.Body({
-        mass: 0,
-        material: groundMaterial,
-        shape: new CANNON.Plane(),
-        // @ts-ignore
-        quaternion: new CANNON.Quaternion(-q._x, q._y, q._z, q._w),
-      });
-      world.addBody(planeBody);
+    }
+    const texture: any = await texturePromise();
+    const planeMaterial = new THREE.MeshLambertMaterial({
+      map: texture,
+      side: THREE.DoubleSide,
     });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    // 地面接受阴影
+    plane.receiveShadow = true;
+    plane.rotation.x = Math.PI / 2;
+    scene.add(plane);
+    // 地面刚体
+    const q = plane.quaternion;
+    const planeBody = new CANNON.Body({
+      mass: 0,
+      material: groundMaterial,
+      shape: new CANNON.Plane(),
+      // @ts-ignore
+      quaternion: new CANNON.Quaternion(-q._x, q._y, q._z, q._w),
+    });
+    world.addBody(planeBody);
 
     // 创建车库
     const parkingFloor = this.createParkingHouse();
