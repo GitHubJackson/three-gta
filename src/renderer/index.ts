@@ -16,7 +16,7 @@ const textureLoader = new THREE.TextureLoader();
 const engineForce = 3000;
 const maxSteerVal = 0.7;
 const brakeForce = 20;
-const velocityThreshold = 0.1;
+const velocityThreshold = 0.15;
 
 // const fbxLoader = new FBXLoader();
 
