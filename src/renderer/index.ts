@@ -198,14 +198,14 @@ class Renderer {
     // car physics body
     const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.3, 2));
     const chassisBody = new CANNON.Body({
-      mass: 500,
+      mass: 250,
       material: new CANNON.Material({ friction: 0.5, restitution: 0 }),
     });
     chassisBody.addEventListener("stop", () => {
       console.log("刚体停止运动");
     });
     chassisBody.addShape(chassisShape);
-    chassisBody.position.set(0, 4, 0);
+    chassisBody.position.set(0, 2, 0);
     // 初始角速度
     chassisBody.angularVelocity.set(0, 0, 0);
     const vehicle = new CANNON.RaycastVehicle({
@@ -218,9 +218,9 @@ class Renderer {
     const options = {
       radius: 0.4,
       directionLocal: new CANNON.Vec3(0, -1, 0),
-      suspensionStiffness: 30,
+      suspensionStiffness: 8,
       suspensionRestLength: 0.3,
-      frictionSlip: 5,
+      frictionSlip: 8,
       dampingRelaxation: 2,
       dampingCompression: 4,
       maxSuspensionForce: 100000,
@@ -385,8 +385,8 @@ class Renderer {
         }
       }
     }
-    const cameraOffsetY = 15;
-    const cameraOffsetZ = 25;
+    const cameraOffsetY = 13;
+    const cameraOffsetZ = 23;
     // 自适应
     window.addEventListener("resize", onResize, false);
     function onResize() {
@@ -498,13 +498,16 @@ class Renderer {
       renderer.render(scene, camera);
       updatePhysics();
       stats.end();
-      requestAnimationFrame(animate);
+      // requestAnimationFrame(animate);
     };
     setTimeout(() => {
-      vehicle.applyEngineForce(2000, 2);
-      vehicle.applyEngineForce(2000, 3);
-    }, 100);
+      vehicle.applyEngineForce(5000, 2);
+      vehicle.applyEngineForce(5000, 3);
+    }, 300);
     animate();
+    setInterval(() => {
+      animate();
+    }, 16);
     return renderer;
   }
 }
