@@ -1,0 +1,16 @@
+.container {
+  position: absolute;
+  width: 100vw;
+  height: 100vh;
+  color: yellow;
+  z-index: 1;
+}
+
+.score-box {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  font-size: 30px;
+  text-align: center;
+  transform: translateX(-50%);
+}

@@ -11,12 +11,16 @@
   },
   "dependencies": {
     "cannon-es": "^0.20.0",
+    "lodash": "^4.17.21",
+    "mobx": "^6.12.0",
+    "mobx-react": "^9.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "stats.js": "^0.17.0",
     "three": "^0.160.0"
   },
   "devDependencies": {
+    "@types/lodash": "^4.14.202",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@types/three": "^0.160.0",
