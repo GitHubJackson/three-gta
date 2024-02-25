@@ -4,7 +4,7 @@ import styles from "./index.module.css";
 
 export function Playground() {
   useEffect(() => {
-    const renderer = gtaRenderer.init({
+    gtaRenderer.init({
       container: "playground",
     });
     // return () => {

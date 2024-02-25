@@ -1,4 +1,3 @@
-import { vehicleStore } from "./../store/index";
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -10,12 +9,13 @@ import * as CANNON from "cannon-es";
 import _ from "lodash";
 import { getDirection, getScore } from "../helper/utils";
 import { ESlideDirection } from "../types/enum";
+import * as TWEEN from "@tweenjs/tween.js";
 
 const textureLoader = new THREE.TextureLoader();
 
-const engineForce = 3000;
-const maxSteerVal = 0.7;
-const brakeForce = 20;
+const engineForce = 7000;
+const maxSteerVal = 0.02;
+const brakeForce = 30;
 const velocityThreshold = 0.15;
 
 // const fbxLoader = new FBXLoader();
@@ -34,80 +34,6 @@ class Renderer {
 
   constructor() {
     // console.log("===Renderer");
-  }
-
-  createParkingHouse() {
-    if (!this.scene || !this.world) return;
-    const offset = 30;
-    // 创建背景墙
-    const background = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 4, 0.1),
-      new THREE.MeshBasicMaterial({ color: 0xcccccc })
-    );
-    background.position.set(0, 0, -(53 + offset));
-    this.scene.add(background);
-    // 创建侧边墙1
-    const sider1 = new THREE.Mesh(
-      new THREE.BoxGeometry(6, 4, 0.3),
-      new THREE.MeshBasicMaterial({ color: 0xcccccc })
-    );
-    sider1.rotation.y = Math.PI / 2;
-    sider1.position.set(-1.5, 0.1, -(50 + offset));
-    this.scene.add(sider1);
-    // 创建侧边墙2
-    const sider2 = new THREE.Mesh(
-      new THREE.BoxGeometry(6, 4, 0.3),
-      new THREE.MeshBasicMaterial({ color: 0xcccccc })
-    );
-    sider2.rotation.y = Math.PI / 2;
-    sider2.position.set(1.5, 0.1, -(50 + offset));
-    this.scene.add(sider2);
-    // 创建屋顶
-    const roof = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 6, 0.1),
-      new THREE.MeshBasicMaterial({
-        color: 0xcccccc,
-        transparent: true,
-        opacity: 0.9,
-      })
-    );
-    roof.rotation.x = Math.PI / 2;
-    roof.position.set(0, 2, -(50 + offset));
-    this.scene.add(roof);
-    // 创建地板
-    const floor = new THREE.Mesh(
-      new THREE.BoxGeometry(3, 6, 0.1),
-      new THREE.MeshBasicMaterial({ color: 0x666666 })
-    );
-    floor.rotation.x = Math.PI / 2;
-    floor.position.set(0, 0.1, -(50 + offset));
-    this.scene.add(floor);
-    // physic
-    // 背景墙
-    const backgroundShape = new CANNON.Box(new CANNON.Vec3(1.5, 4, 0.1));
-    const backgroundBody = new CANNON.Body({ mass: 0 });
-    backgroundBody.addShape(backgroundShape);
-    backgroundBody.position.set(0, 0, -(53 + offset));
-    this.world.addBody(backgroundBody);
-    // 侧边墙1
-    const sider1Shape = new CANNON.Box(new CANNON.Vec3(0.1, 2, 3));
-    const sider1SBody = new CANNON.Body({ mass: 0 });
-    sider1SBody.addShape(sider1Shape);
-    sider1SBody.position.set(-1.5, 0.1, -(50 + offset));
-    this.world.addBody(sider1SBody);
-    // 侧边墙2
-    const sider2Shape = new CANNON.Box(new CANNON.Vec3(0.1, 2, 3));
-    const sider2SBody = new CANNON.Body({ mass: 0 });
-    sider2SBody.addShape(sider2Shape);
-    sider2SBody.position.set(1.5, 0.1, -(50 + offset));
-    this.world.addBody(sider2SBody);
-    // 调整角度
-    // sider1SBody.quaternion.setFromAxisAngle(
-    //   new CANNON.Vec3(0, 1, 0),
-    //   Math.PI / 2
-    // );
-    this.world.addBody(sider2SBody);
-    return floor;
   }
 
   async init(initPayload: IInitPayload) {
@@ -145,8 +71,19 @@ class Renderer {
     // renderer.setClearColor(0xffffff);
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = true;
-    // 地面
-    const planeGeometry = new THREE.PlaneGeometry(1000, 1000);
+
+    // 创建天空盒子
+    const skyGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
+    const materialArray = [];
+    for (let i = 0; i < 6; i++)
+      materialArray.push(
+        new THREE.MeshBasicMaterial({
+          map: textureLoader.load("/gta/sky.jpg"),
+          side: THREE.BackSide,
+        })
+      );
+    const skyBox = new THREE.Mesh(skyGeometry, materialArray);
+    scene.add(skyBox);
 
     // 小车
     const geometry = new THREE.BoxGeometry(2, 0.6, 3);
@@ -178,7 +115,7 @@ class Renderer {
     const world = new CANNON.World();
     world.broadphase = new CANNON.SAPBroadphase(world);
     // 设定重力
-    world.gravity.set(0, -10, 0);
+    world.gravity.set(0, -20, 0);
     world.defaultContactMaterial.friction = 0;
     this.world = world;
 
@@ -198,7 +135,7 @@ class Renderer {
     // car physics body
     const chassisShape = new CANNON.Box(new CANNON.Vec3(1, 0.3, 2));
     const chassisBody = new CANNON.Body({
-      mass: 250,
+      mass: 300,
       material: new CANNON.Material({ friction: 0.5, restitution: 0 }),
     });
     chassisBody.addEventListener("stop", () => {
@@ -218,8 +155,8 @@ class Renderer {
     const options = {
       radius: 0.4,
       directionLocal: new CANNON.Vec3(0, -1, 0),
-      suspensionStiffness: 8,
-      suspensionRestLength: 0.3,
+      suspensionStiffness: 5,
+      suspensionRestLength: 0.6,
       frictionSlip: 8,
       dampingRelaxation: 2,
       dampingCompression: 4,
@@ -301,26 +238,159 @@ class Renderer {
     const texture: any = await texturePromise();
     const planeMaterial = new THREE.MeshLambertMaterial({
       map: texture,
-      side: THREE.DoubleSide,
+      side: THREE.BackSide,
     });
+    // 第一段路
+    const planeGeometry = new THREE.PlaneGeometry(10, 50);
     const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    // 地面接受阴影
     plane.receiveShadow = true;
     plane.rotation.x = Math.PI / 2;
     scene.add(plane);
-    // 地面刚体
+    // 第一段刚体
     const q = plane.quaternion;
-    const planeBody = new CANNON.Body({
-      mass: 0,
-      material: groundMaterial,
-      shape: new CANNON.Plane(),
-      // @ts-ignore
-      quaternion: new CANNON.Quaternion(-q._x, q._y, q._z, q._w),
-    });
-    world.addBody(planeBody);
+    const roadShape = new CANNON.Box(new CANNON.Vec3(5, 25, 0.01));
+    const roadBody = new CANNON.Body({ mass: 0 });
+    roadBody.addShape(roadShape);
+    roadBody.position.set(0, 0, 0);
+    // @ts-ignore
+    roadBody.quaternion = new CANNON.Quaternion(q._x, q._y, q._z, q._w);
+    this.world.addBody(roadBody);
+    // 第二段0 300
+    const planeGeometry20 = new THREE.PlaneGeometry(10, 60);
+    const plane20 = new THREE.Mesh(planeGeometry20, planeMaterial);
+    plane20.receiveShadow = true;
+    plane20.rotation.x = Math.PI / 2 + 0.2;
+    plane20.position.set(0, 0, -25);
+    scene.add(plane20);
+    // 第二段0刚体
+    // TODO 自动生成关联刚体的函数
+    // TODO 自动生成多段路的函数
+    const q2 = plane20.quaternion;
+    const roadShape2 = new CANNON.Box(new CANNON.Vec3(5, 30, 0.01));
+    const roadBody2 = new CANNON.Body({ mass: 0 });
+    roadBody2.addShape(roadShape2);
+    roadBody2.position.set(0, 0, -25);
+    // @ts-ignore
+    roadBody2.quaternion = new CANNON.Quaternion(q2._x, q2._y, q2._z, q2._w);
+    this.world.addBody(roadBody2);
+    // 第二段1
+    const planeGeometry21 = new THREE.PlaneGeometry(6, 30);
+    const plane21 = new THREE.Mesh(planeGeometry21, planeMaterial);
+    plane21.receiveShadow = true;
+    plane21.rotation.x = Math.PI / 2 + 0.2;
+    plane21.position.set(2, 8, -65);
+    scene.add(plane21);
+    // 第二段1刚体
+    const q21 = plane20.quaternion as any;
+    const roadShape21 = new CANNON.Box(new CANNON.Vec3(3, 15, 0.01));
+    const roadBody21 = new CANNON.Body({ mass: 0 });
+    roadBody21.addShape(roadShape21);
+    roadBody21.position.set(2, 8, -65);
+    // @ts-ignore
+    roadBody21.quaternion = new CANNON.Quaternion(
+      q21._x,
+      q21._y,
+      q21._z,
+      q21._w
+    );
+    this.world.addBody(roadBody21);
+    // 第二段1动画
+    const tweenRoad1Start = new TWEEN.Tween(plane21.position)
+      .to({ x: -2 }, 1000)
+      .delay(500)
+      .repeat(Infinity)
+      .yoyo(true)
+      .onUpdate((data) => {
+        // 更新刚体数据
+        roadBody21.position.x = data.x;
+      })
+      .start();
+    // 第二段2
+    const planeGeometry22 = new THREE.PlaneGeometry(10, 40);
+    const plane22 = new THREE.Mesh(planeGeometry22, planeMaterial);
+    plane22.receiveShadow = true;
+    plane22.rotation.x = Math.PI / 2 + 0.2;
+    plane22.position.set(0, 15, -100);
+    scene.add(plane22);
+    // 第二段2刚体
+    const q22 = plane22.quaternion as any;
+    const roadShape22 = new CANNON.Box(new CANNON.Vec3(5, 20, 0.01));
+    const roadBody22 = new CANNON.Body({ mass: 0 });
+    roadBody22.addShape(roadShape22);
+    roadBody22.position.set(0, 15, -100);
+    roadBody22.quaternion = new CANNON.Quaternion(
+      q22._x,
+      q22._y,
+      q22._z,
+      q22._w
+    );
+    this.world.addBody(roadBody22);
+    // 第二段3
+    const planeGeometry23 = new THREE.PlaneGeometry(6, 30);
+    const plane23 = new THREE.Mesh(planeGeometry23, planeMaterial);
+    plane23.receiveShadow = true;
+    plane23.rotation.x = Math.PI / 2 + 0.2;
+    plane23.position.set(2, 21, -130);
+    scene.add(plane23);
+    // 第二段3刚体
+    const q23 = plane23.quaternion as any;
+    const roadShape23 = new CANNON.Box(new CANNON.Vec3(3, 15, 0.01));
+    const roadBody23 = new CANNON.Body({ mass: 0 });
+    roadBody23.addShape(roadShape23);
+    roadBody23.position.set(2, 21, -130);
+    roadBody23.quaternion = new CANNON.Quaternion(
+      q23._x,
+      q23._y,
+      q23._z,
+      q23._w
+    );
+    this.world.addBody(roadBody23);
+    // 第二段3动画
+    const tweenRoad3Start = new TWEEN.Tween(plane23.position)
+      .to({ x: -2 }, 1000)
+      .delay(500)
+      .repeat(Infinity)
+      .yoyo(true)
+      .onUpdate((data) => {
+        // 更新刚体数据
+        roadBody23.position.x = data.x;
+      })
+      .start();
+    // 第三段
+    const planeGeometry3 = new THREE.PlaneGeometry(20, 80);
+    const plane3 = new THREE.Mesh(planeGeometry3, planeMaterial);
+    plane3.receiveShadow = true;
+    plane3.rotation.x = Math.PI / 2 + 0.3;
+    plane3.position.set(0, 16, -240);
+    scene.add(plane3);
+    // 第三段刚体
+    const q3 = plane3.quaternion;
+    const roadShape3 = new CANNON.Box(new CANNON.Vec3(10, 40, 0.01));
+    const roadBody3 = new CANNON.Body({ mass: 0 });
+    roadBody3.addShape(roadShape3);
+    roadBody3.position.set(0, 16, -240);
+    // @ts-ignore
+    roadBody3.quaternion = new CANNON.Quaternion(q3._x, q3._y, q3._z, q3._w);
+    this.world.addBody(roadBody3);
+    // 第四段
+    const planeGeometry4 = new THREE.PlaneGeometry(10, 140);
+    const plane4 = new THREE.Mesh(planeGeometry4, planeMaterial);
+    plane4.receiveShadow = true;
+    plane4.rotation.x = Math.PI / 2;
+    plane4.position.set(0, 20, -400);
+    scene.add(plane4);
+    // 第四段刚体
+    const q4 = plane4.quaternion;
+    const roadShape4 = new CANNON.Box(new CANNON.Vec3(5, 70, 0.01));
+    const roadBody4 = new CANNON.Body({ mass: 0 });
+    roadBody4.addShape(roadShape4);
+    roadBody4.position.set(0, 20, -400);
+    // @ts-ignore
+    roadBody4.quaternion = new CANNON.Quaternion(q4._x, q4._y, q4._z, q4._w);
+    this.world.addBody(roadBody4);
 
     // 创建车库
-    const parkingFloor = this.createParkingHouse();
+    // const parkingFloor = this.createParkingHouse();
 
     function updatePhysics() {
       world.step(1 / 60);
@@ -328,31 +398,31 @@ class Renderer {
       egoCar.position.copy(chassisBody.position);
       // @ts-ignore
       egoCar.quaternion.copy(chassisBody.quaternion);
-      // 检查刚体的速度
-      if (
-        chassisBody.velocity.length() < velocityThreshold &&
-        !vehicleStore.isStop
-      ) {
-        vehicleStore.stop();
-        // 计算分数
-        const vehiclePos = [
-          vehicle.chassisBody.position.x,
-          vehicle.chassisBody.position.y,
-          vehicle.chassisBody.position.z,
-        ];
-        const vehicleQuaternion = [
-          vehicle.chassisBody.quaternion.x,
-          vehicle.chassisBody.quaternion.y,
-          vehicle.chassisBody.quaternion.z,
-        ];
-        const housePos = [
-          parkingFloor?.position.x ?? 0,
-          parkingFloor?.position.y ?? 0,
-          parkingFloor?.position.z ?? 0,
-        ];
-        const score = getScore(housePos, vehiclePos, vehicleQuaternion);
-        vehicleStore.setScore(score);
-      }
+      // // 检查刚体的速度
+      // if (
+      //   chassisBody.velocity.length() < velocityThreshold &&
+      //   !vehicleStore.isStop
+      // ) {
+      //   vehicleStore.stop();
+      //   // 计算分数
+      //   const vehiclePos = [
+      //     vehicle.chassisBody.position.x,
+      //     vehicle.chassisBody.position.y,
+      //     vehicle.chassisBody.position.z,
+      //   ];
+      //   const vehicleQuaternion = [
+      //     vehicle.chassisBody.quaternion.x,
+      //     vehicle.chassisBody.quaternion.y,
+      //     vehicle.chassisBody.quaternion.z,
+      //   ];
+      //   const housePos = [
+      //     parkingFloor?.position.x ?? 0,
+      //     parkingFloor?.position.y ?? 0,
+      //     parkingFloor?.position.z ?? 0,
+      //   ];
+      //   const score = getScore(housePos, vehiclePos, vehicleQuaternion);
+      //   vehicleStore.setScore(score);
+      // }
     }
 
     function brakeVehicle() {
@@ -385,8 +455,8 @@ class Renderer {
         }
       }
     }
-    const cameraOffsetY = 13;
-    const cameraOffsetZ = 23;
+    const cameraOffsetY = 4;
+    const cameraOffsetZ = 16;
     // 自适应
     window.addEventListener("resize", onResize, false);
     function onResize() {
@@ -433,19 +503,14 @@ class Renderer {
         case "ArrowLeft":
           vehicle.setSteeringValue(isKeyup ? 0 : -maxSteerVal, 2);
           vehicle.setSteeringValue(isKeyup ? 0 : -maxSteerVal, 3);
-          // 漂移停车游戏需要，如果要正常行驶，需要去掉下面俩行
-          vehicle.applyEngineForce(0, 2);
-          vehicle.applyEngineForce(0, 3);
+          brakeVehicle();
           break;
         case "ArrowRight":
           vehicle.setSteeringValue(isKeyup ? 0 : maxSteerVal, 2);
           vehicle.setSteeringValue(isKeyup ? 0 : maxSteerVal, 3);
-          // 漂移停车游戏需要，如果要正常行驶，需要去掉下面俩行
-          vehicle.applyEngineForce(0, 2);
-          vehicle.applyEngineForce(0, 3);
+          brakeVehicle();
           break;
       }
-      brakeVehicle();
     }
     window.addEventListener("keydown", handleNavigate);
     window.addEventListener("keyup", handleNavigate);
@@ -497,18 +562,93 @@ class Renderer {
       camera.lookAt(egoCar.position);
       renderer.render(scene, camera);
       updatePhysics();
+      TWEEN.update();
       stats.end();
       // requestAnimationFrame(animate);
     };
-    setTimeout(() => {
-      vehicle.applyEngineForce(5000, 2);
-      vehicle.applyEngineForce(5000, 3);
-    }, 300);
+    // setTimeout(() => {
+    //   vehicle.applyEngineForce(5000, 2);
+    //   vehicle.applyEngineForce(5000, 3);
+    // }, 300);
     animate();
     setInterval(() => {
       animate();
     }, 16);
     return renderer;
+  }
+
+  createParkingHouse() {
+    if (!this.scene || !this.world) return;
+    const offset = 30;
+    // 创建背景墙
+    const background = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 4, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0xcccccc })
+    );
+    background.position.set(0, 0, -(53 + offset));
+    this.scene.add(background);
+    // 创建侧边墙1
+    const sider1 = new THREE.Mesh(
+      new THREE.BoxGeometry(6, 4, 0.3),
+      new THREE.MeshBasicMaterial({ color: 0xcccccc })
+    );
+    sider1.rotation.y = Math.PI / 2;
+    sider1.position.set(-1.5, 0.1, -(50 + offset));
+    this.scene.add(sider1);
+    // 创建侧边墙2
+    const sider2 = new THREE.Mesh(
+      new THREE.BoxGeometry(6, 4, 0.3),
+      new THREE.MeshBasicMaterial({ color: 0xcccccc })
+    );
+    sider2.rotation.y = Math.PI / 2;
+    sider2.position.set(1.5, 0.1, -(50 + offset));
+    this.scene.add(sider2);
+    // 创建屋顶
+    const roof = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 6, 0.1),
+      new THREE.MeshBasicMaterial({
+        color: 0xcccccc,
+        transparent: true,
+        opacity: 0.9,
+      })
+    );
+    roof.rotation.x = Math.PI / 2;
+    roof.position.set(0, 2, -(50 + offset));
+    this.scene.add(roof);
+    // 创建地板
+    const floor = new THREE.Mesh(
+      new THREE.BoxGeometry(3, 6, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0x666666 })
+    );
+    floor.rotation.x = Math.PI / 2;
+    floor.position.set(0, 0.1, -(50 + offset));
+    this.scene.add(floor);
+    // physic
+    // 背景墙
+    const backgroundShape = new CANNON.Box(new CANNON.Vec3(1.5, 4, 0.1));
+    const backgroundBody = new CANNON.Body({ mass: 0 });
+    backgroundBody.addShape(backgroundShape);
+    backgroundBody.position.set(0, 0, -(53 + offset));
+    this.world.addBody(backgroundBody);
+    // 侧边墙1
+    const sider1Shape = new CANNON.Box(new CANNON.Vec3(0.1, 2, 3));
+    const sider1SBody = new CANNON.Body({ mass: 0 });
+    sider1SBody.addShape(sider1Shape);
+    sider1SBody.position.set(-1.5, 0.1, -(50 + offset));
+    this.world.addBody(sider1SBody);
+    // 侧边墙2
+    const sider2Shape = new CANNON.Box(new CANNON.Vec3(0.1, 2, 3));
+    const sider2SBody = new CANNON.Body({ mass: 0 });
+    sider2SBody.addShape(sider2Shape);
+    sider2SBody.position.set(1.5, 0.1, -(50 + offset));
+    this.world.addBody(sider2SBody);
+    // 调整角度
+    // sider1SBody.quaternion.setFromAxisAngle(
+    //   new CANNON.Vec3(0, 1, 0),
+    //   Math.PI / 2
+    // );
+    this.world.addBody(sider2SBody);
+    return floor;
   }
 }
 

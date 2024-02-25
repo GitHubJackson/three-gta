@@ -1,7 +1,7 @@
 {
   "name": "three-gta",
   "private": true,
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@tweenjs/tween.js": "^23.1.1",
+    "camera-controls": "^2.8.3",
     "cannon-es": "^0.20.0",
     "lodash": "^4.17.21",
     "mobx": "^6.12.0",
