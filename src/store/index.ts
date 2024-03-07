@@ -13,6 +13,10 @@ class VehicleStore {
     this.isStop = true;
   }
 
+  // 游戏判断
+  isSuccess = false;
+  isGameOver = false;
+
   constructor() {
     makeAutoObservable(this);
   }

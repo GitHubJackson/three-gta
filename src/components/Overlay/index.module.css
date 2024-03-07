@@ -10,7 +10,8 @@
   position: absolute;
   top: 10%;
   left: 50%;
-  font-size: 30px;
+  font-size: 36px;
   text-align: center;
   transform: translateX(-50%);
+  font-weight: 700;
 }
